@@ -1,0 +1,166 @@
+{
+    "scene": {
+        "gizmo": {
+            "is2D": true,
+            "transformToolName": "position",
+            "viewMode": "select",
+            "pivot": "pivot",
+            "coordinate": "local",
+            "snapConfigs": {
+                "position": {
+                    "x": 1,
+                    "y": 1,
+                    "z": 1
+                },
+                "rotation": 1,
+                "scale": 1,
+                "isPositionSnapEnabled": false,
+                "isRotationSnapEnabled": false,
+                "isScaleSnapEnabled": false
+            },
+            "rectSnapConfig": {
+                "enableSnapping": true,
+                "snapThreshold": 4
+            },
+            "toolsVisibility3d": true
+        },
+        "camera-infos": {
+            "eb4beea4-5817-464c-8aa0-d37d38da6981": {
+                "position": {
+                    "x": 1535.9999999999995,
+                    "y": 864,
+                    "z": 5000
+                },
+                "rotation": {
+                    "x": 0,
+                    "y": 0,
+                    "z": 0,
+                    "w": 1
+                },
+                "viewCenter": {
+                    "x": 0,
+                    "y": 0,
+                    "z": 0
+                },
+                "contentRect": {
+                    "x": -658.2857142857146,
+                    "y": -370.2857142857144,
+                    "width": 3072,
+                    "height": 1728
+                },
+                "scale": 0.7
+            },
+            "8c0ef071-e0b2-471d-8f9f-5c654150f02f": {
+                "position": {
+                    "x": 605.3233861321652,
+                    "y": 366.12097039064616,
+                    "z": 5000
+                },
+                "rotation": {
+                    "x": 0,
+                    "y": 0,
+                    "z": 0,
+                    "w": 1
+                },
+                "viewCenter": {
+                    "x": 0,
+                    "y": 0,
+                    "z": 0
+                },
+                "contentRect": {
+                    "x": -190.54370016227156,
+                    "y": -81.55426564997448,
+                    "width": 3072,
+                    "height": 1728
+                },
+                "scale": 1.9299705019234152
+            },
+            "e6957e72-f97f-4ca4-a5df-f396dc91d74b": {
+                "position": {
+                    "x": 640,
+                    "y": 360.0000000000001,
+                    "z": 5000
+                },
+                "rotation": {
+                    "x": 0,
+                    "y": 0,
+                    "z": 0,
+                    "w": 1
+                },
+                "viewCenter": {
+                    "x": 0,
+                    "y": 0,
+                    "z": 0
+                },
+                "contentRect": {
+                    "x": 0,
+                    "y": 5.684341886080802e-14,
+                    "width": 2150.4,
+                    "height": 1209.6
+                },
+                "scale": 1.68
+            },
+            "6638b73f-e37f-4fc7-a8d9-bed1013e25bb": {
+                "position": {
+                    "x": 673.7904628840595,
+                    "y": 348.7014433545164,
+                    "z": 5000
+                },
+                "rotation": {
+                    "x": 0,
+                    "y": 0,
+                    "z": 0,
+                    "w": 1
+                },
+                "viewCenter": {
+                    "x": 640,
+                    "y": 360,
+                    "z": 0
+                },
+                "contentRect": {
+                    "x": 479.93408499994723,
+                    "y": 239.65723079470325,
+                    "width": 3072,
+                    "height": 1728
+                },
+                "scale": 7.92339161994569
+            },
+            "af9f135c-8838-4917-9325-5a85bae4579c": {
+                "position": {
+                    "x": 640,
+                    "y": 360,
+                    "z": 5000
+                },
+                "rotation": {
+                    "x": 0,
+                    "y": 0,
+                    "z": 0,
+                    "w": 1
+                },
+                "viewCenter": {
+                    "x": 640,
+                    "y": 360,
+                    "z": 0
+                },
+                "contentRect": {
+                    "x": 578.5,
+                    "y": 303,
+                    "width": 1305.0947368421052,
+                    "height": 1209.6
+                },
+                "scale": 10.610526315789473
+            }
+        },
+        "camera-uuids": [
+            "eb4beea4-5817-464c-8aa0-d37d38da6981",
+            "8c0ef071-e0b2-471d-8f9f-5c654150f02f",
+            "e6957e72-f97f-4ca4-a5df-f396dc91d74b",
+            "6638b73f-e37f-4fc7-a8d9-bed1013e25bb",
+            "af9f135c-8838-4917-9325-5a85bae4579c"
+        ],
+        "sceneView": {
+            "sceneLightOn": true
+        }
+    },
+    "version": "1.0.0"
+}

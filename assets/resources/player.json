@@ -1,0 +1,11 @@
+{
+  "hp": 120,
+  "maxHp": 120,
+  "moveSpeed": 300,
+  "attackInterval": 0.85,
+  "attackRange": 500,
+  "level": 1,
+  "exp": 0,
+  "baseExpToLevelUp": 36,
+  "expGrowthPerLevel": 25
+}

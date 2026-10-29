@@ -1,0 +1,36 @@
+{
+  "__type__": "cc.Material",
+  "_name": "",
+  "_objFlags": 0,
+  "__editorExtras__": {},
+  "_native": "",
+  "_effectAsset": {
+    "__uuid__": "7c4d2e9a-8f1b-4a6c-b3d5-2e8f9a0c1d47",
+    "__expectedType__": "cc.EffectAsset"
+  },
+  "_techIdx": 0,
+  "_defines": [
+    {}
+  ],
+  "_states": [
+    {
+      "blendState": {
+        "targets": [
+          {
+            "blend": true,
+            "blendSrc": 2,
+            "blendDst": 4,
+            "blendEq": 0,
+            "blendSrcAlpha": 1,
+            "blendDstAlpha": 4,
+            "blendAlphaEq": 0,
+            "blendColorMask": 15
+          }
+        ]
+      }
+    }
+  ],
+  "_props": [
+    {}
+  ]
+}

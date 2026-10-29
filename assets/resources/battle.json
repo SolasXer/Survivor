@@ -1,0 +1,15 @@
+{
+  "spawnInterval": 3,
+  "minSpawnInterval": 0.9,
+  "spawnIntervalRampTime": 260,
+  "statGrowthStartTime": 30,
+  "statGrowthRate": 0.01,
+  "maxStatMultiplier": 3,
+  "rangedPhaseTime": 150,
+  "bossSpawnTime": 600,
+  "meleeWeight": 60,
+  "rangedWeight": 40,
+  "clearEnemiesOnBoss": false,
+  "applyGrowthToBoss": false,
+  "spawnMargin": 80
+}

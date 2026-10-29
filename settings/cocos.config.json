@@ -1,0 +1,87 @@
+{
+    "scene": {
+        "tick": false
+    },
+    "engine": {
+        "physicsConfig": {
+            "collisionGroups": [
+                {
+                    "name": "PLAYER",
+                    "index": 1
+                },
+                {
+                    "name": "ENEMY",
+                    "index": 2
+                },
+                {
+                    "name": "PLAYER_BULLET",
+                    "index": 3
+                },
+                {
+                    "name": "ENEMY_BULLET",
+                    "index": 4
+                }
+            ],
+            "collisionMatrix": {
+                "0": 1,
+                "1": 20,
+                "2": 10,
+                "3": 4,
+                "4": 2
+            }
+        },
+        "configs": {
+            "defaultConfig": {
+                "name": "默认配置",
+                "includeModules": [
+                    "2d",
+                    "3d",
+                    "affine-transform",
+                    "animation",
+                    "audio",
+                    "base",
+                    "custom-pipeline",
+                    "dragon-bones",
+                    "gfx-webgl",
+                    "graphics",
+                    "intersection-2d",
+                    "light-probe",
+                    "marionette",
+                    "mask",
+                    "particle",
+                    "particle-2d",
+                    "physics-2d-builtin",
+                    "physics-ammo",
+                    "primitive",
+                    "profiler",
+                    "rich-text",
+                    "skeletal-animation",
+                    "spine-3.8",
+                    "terrain",
+                    "tiled-map",
+                    "tween",
+                    "ui",
+                    "ui-skew",
+                    "video",
+                    "websocket",
+                    "webview"
+                ],
+                "flags": {
+                    "LOAD_BULLET_MANUALLY": false,
+                    "LOAD_PHYSX_MANUALLY": false,
+                    "LOAD_BOX2D_MANUALLY": false,
+                    "LOAD_SPINE_MANUALLY": false
+                },
+                "noDeprecatedFeatures": {
+                    "value": false,
+                    "version": ""
+                },
+                "optionMemory": {
+                    "physics-2d": "physics-2d-builtin"
+                }
+            }
+        }
+    },
+    "version": "1.0.0",
+    "$schema": "../temp/cocos.config.schema.json"
+}

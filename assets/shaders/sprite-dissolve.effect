@@ -1,0 +1,139 @@
+// 2D Sprite 溶解特效 Shader（Cocos Creator 3.8）
+// 效果：图片从下往上逐渐溶解消失，溶解前沿带灼烧颜色的不规则锯齿边缘
+// 进度：u_progress = 0 完整显示，1 完全溶解
+// 用法：新建材质选择本 effect，赋给 Sprite 的 Custom Material
+
+CCEffect %{
+  techniques:
+  - passes:
+    - vert: sprite-vs:vert
+      frag: sprite-fs:frag
+      depthStencilState:
+        depthTest: false
+        depthWrite: false
+      blendState:
+        targets:
+        - blend: true
+          blendSrc: src_alpha
+          blendDst: one_minus_src_alpha
+          blendDstAlpha: one_minus_src_alpha
+      rasterizerState:
+        cullMode: none
+      properties:
+        u_progress: { value: 0.0, editor: { tooltip: '溶解进度：0 完整显示，1 完全溶解（从下往上）' } }
+        u_edgeWidth: { value: 0.08, editor: { tooltip: '溶解边缘（灼烧带）宽度' } }
+        u_noiseScale: { value: 20.0, editor: { tooltip: '噪声密度：值越大边缘越细碎' } }
+        u_noiseIntensity: { value: 0.35, editor: { tooltip: '噪声强度：值越大边缘越参差' } }
+        u_burnColor: { value: [1.0, 0.45, 0.1, 1.0], editor: { type: color, tooltip: '溶解边缘的灼烧颜色' } }
+}%
+
+CCProgram sprite-vs %{
+  precision highp float;
+  #include <builtin/uniforms/cc-global>
+
+  #if USE_LOCAL
+    #include <builtin/uniforms/cc-local>
+  #endif
+  #if SAMPLE_FROM_RT
+    #include <common/common-define>
+  #endif
+
+  in vec3 a_position;
+  in vec2 a_texCoord;
+  in vec4 a_color;
+
+  out vec4 v_color;
+  out vec2 uv0;
+
+  vec4 vert () {
+    vec4 pos = vec4(a_position, 1.0);
+
+    #if USE_LOCAL
+      pos = cc_matWorld * pos;
+    #endif
+
+    #if USE_PIXEL_ALIGNMENT
+      pos = cc_matView * pos;
+      pos.xyz = floor(pos.xyz);
+      pos = cc_matProj * pos;
+    #else
+      pos = cc_matViewProj * pos;
+    #endif
+
+    uv0 = a_texCoord;
+    #if SAMPLE_FROM_RT
+      CC_HANDLE_RT_SAMPLE_FLIP(uv0);
+    #endif
+    v_color = a_color;
+
+    return pos;
+  }
+}%
+
+CCProgram sprite-fs %{
+  precision highp float;
+  #include <builtin/uniforms/cc-global>
+
+  in vec4 v_color;
+  in vec2 uv0;
+
+  // Sprite 的贴图由渲染器自动绑定到该槽位
+  #pragma builtin(local)
+  layout(set = 2, binding = 12) uniform sampler2D cc_spriteTexture;
+
+  uniform Dissolve {
+    float u_progress;        // 溶解进度 0~1
+    float u_edgeWidth;       // 灼烧边缘宽度
+    float u_noiseScale;      // 噪声密度
+    float u_noiseIntensity;  // 噪声强度
+    vec4 u_burnColor;        // 边缘灼烧颜色
+  };
+
+  float hash (vec2 p) {
+    return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453123);
+  }
+
+  float valueNoise (vec2 p) {
+    vec2 i = floor(p);
+    vec2 f = fract(p);
+    f = f * f * (3.0 - 2.0 * f);
+    float a = hash(i);
+    float b = hash(i + vec2(1.0, 0.0));
+    float c = hash(i + vec2(0.0, 1.0));
+    float d = hash(i + vec2(1.0, 1.0));
+    return mix(mix(a, b, f.x), mix(c, d, f.x), f.y);
+  }
+
+  // 简易 fbm，归一化到 0~1
+  float fbm (vec2 p) {
+    float v = valueNoise(p) * 0.5;
+    v += valueNoise(p * 2.03 + vec2(19.7, 7.3)) * 0.25;
+    v += valueNoise(p * 4.01 + vec2(37.3, 11.9)) * 0.125;
+    v += valueNoise(p * 8.05 + vec2(61.1, 23.7)) * 0.0625;
+    return v * 1.0666667;
+  }
+
+  vec4 frag () {
+    vec4 o = texture(cc_spriteTexture, uv0) * v_color;
+
+    // 高度场：图片底部为 0、顶部为 1，叠加噪声让溶解边缘不规则
+    float noise = fbm(uv0 * u_noiseScale);
+    float h = uv0.y + (noise - 0.5) * u_noiseIntensity;
+
+    // 进度映射到噪声覆盖的完整区间：0 时全部显示，1 时全部消失
+    float amp = max(u_noiseIntensity, 0.0001) * 0.5;
+    float t = mix(-amp, 1.0 + amp, clamp(u_progress, 0.0, 1.0));
+
+    float w = max(u_edgeWidth, 0.0001);
+    if (h < t - w) discard; // 已溶解区域直接裁剪
+
+    // 灼烧边缘：0 正常像素，越接近 1 越濒临溶解
+    float edge = clamp((t - h) / w, 0.0, 1.0);
+
+    vec3 rgb = mix(o.rgb, u_burnColor.rgb, edge);
+    float alpha = o.a * (1.0 - edge);
+    if (alpha <= 0.0) discard;
+
+    return vec4(rgb, alpha);
+  }
+}%

@@ -1,0 +1,43 @@
+{
+  "defaultEnemyId": "slime",
+  "enemies": {
+    "slime": {
+      "id": "slime",
+      "name": "史莱姆",
+      "hp": 30,
+      "moveSpeed": 105,
+      "damage": 5,
+      "exp": 10
+    },
+    "goblin": {
+      "id": "goblin",
+      "name": "哥布林",
+      "hp": 40,
+      "moveSpeed": 95,
+      "damage": 6,
+      "exp": 18,
+      "ranged": {
+        "keepDistance": 320,
+        "fireInterval": 2,
+        "bulletSpeed": 280,
+        "bulletDamage": 8
+      }
+    },
+    "boss": {
+      "id": "boss",
+      "name": "恶龙",
+      "hp": 3000,
+      "moveSpeed": 70,
+      "damage": 20,
+      "exp": 300,
+      "phase": {
+        "hpRatio": 0.5,
+        "moveSpeedMultiplier": 1.6,
+        "fireInterval": 2.2,
+        "bulletCount": 12,
+        "bulletSpeed": 260,
+        "bulletDamage": 10
+      }
+    }
+  }
+}
