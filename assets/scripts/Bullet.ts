@@ -2,6 +2,7 @@ import { _decorator, Component, Node, Camera, Collider2D, Contact2DType, IPhysic
 import { BulletSkillStats, CRIT_DAMAGE_MULTIPLIER } from './SkillConfig';
 import { AudioManager, SfxType } from './AudioManager';
 import { EventBus } from './EventBus';
+import { BulletPool } from './BulletPool';
 import {
     DAMAGE_ENEMY,
     DAMAGE_TEXT_REQUEST,
@@ -20,8 +21,11 @@ const RAD_TO_DEG = 180 / Math.PI;
 /**
  * 子弹：挂载在 Bullet 预制件根节点上。
  * 设定方向后按该方向持续飞行；
- * 命中敌人（分组 ENEMY）时结算伤害，之后销毁自身（触发穿透则继续飞行）；
- * 飞出地图/屏幕范围后自动销毁。
+ * 命中敌人（分组 ENEMY）时结算伤害，之后把自身归还对象池（触发穿透则继续飞行）；
+ * 飞出地图/屏幕范围后同样归还对象池，而不是销毁节点，以便下次发射时直接复用。
+ *
+ * 节点在启用时会自行绑定到当前默认的对象池（见 `BulletPool.defaultPool`），
+ * 未被对象池接管的节点（例如池容量用尽时的临时节点）仍按原逻辑销毁。
  *
  * 伤害、速度、穿透、暴击、击退、减速等数值由玩家发射时通过
  * `applySkillStats()` 按当前技能等级表写入。
@@ -78,6 +82,9 @@ export class Bullet extends Component {
     private _dead: boolean = false;
     /** 本次飞行中已经命中过的敌人，穿透时避免对同一敌人重复结算 */
     private _hitNodes: Node[] = [];
+
+    /** 所属对象池：结束时把节点归还给它；没有对象池（临时节点）时按原逻辑销毁 */
+    private _pool: BulletPool | null = null;
     private readonly _tmpPos: Vec3 = new Vec3();
 
     onLoad() {
@@ -85,6 +92,9 @@ export class Bullet extends Component {
     }
 
     onEnable() {
+        // 每次启用都重新绑定当前默认的对象池：节点是复用的，所属池可能已重建
+        this._pool = BulletPool.defaultPool;
+
         this._dead = false;
         this._hitNodes.length = 0;
         this._dir.set(this.direction).normalize();
@@ -135,8 +145,9 @@ export class Bullet extends Component {
         );
         this.node.setWorldPosition(this._tmpPos);
 
+        // 飞出屏幕：归还对象池而不是销毁节点
         if (this.isOutOfRange()) {
-            this.destroySelf();
+            this.returnToPool();
         }
     }
 
@@ -248,16 +259,26 @@ export class Bullet extends Component {
         // 触发穿透时保留子弹，继续飞行攻击后续敌人
         if (Math.random() < Math.max(0, this.pierceRate)) return;
 
-        this.destroySelf();
+        // 命中敌人后收回对象池等待复用
+        this.returnToPool();
     }
 
-    private destroySelf() {
+    /**
+     * 结束本次飞行：由对象池接管时把节点隐藏并归还，未接管时按原逻辑销毁。
+     * 归还动作会触发 `onDisable`（解绑碰撞监听），下次复用时 `onEnable` 会重新装配。
+     */
+    private returnToPool() {
         if (this._dead) return;
         this._dead = true;
 
-        if (this.node?.isValid) {
-            this.node.destroy();
+        if (!this.node?.isValid) return;
+
+        if (this._pool) {
+            this._pool.release(this.node);
+            return;
         }
+
+        this.node.destroy();
     }
 
     private static getCamera(): Camera | null {

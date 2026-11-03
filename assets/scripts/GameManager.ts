@@ -7,9 +7,11 @@ import {
     GAME_PAUSE_CHANGE,
     PLAYER_DEAD,
     PLAYER_LEVEL_UP,
+    PLAYER_REVIVE,
     EnemyKilledPayload,
     GameOverPayload,
     PlayerLevelUpPayload,
+    PlayerRevivePayload,
 } from './GameEvents';
 const { ccclass, property } = _decorator;
 
@@ -29,6 +31,9 @@ export const GAME_STATE_CHANGE = 'game-state-change';
 /** 默认游戏时间上限（秒），即 10 分钟；到达该时间后进入 Boss 阶段 */
 export const GAME_TIME_LIMIT = 600;
 
+/** 广告复活后恢复的生命值比例（占生命值上限） */
+export const REVIVE_HP_RATIO = 0.5;
+
 /**
  * 游戏管理：挂载在 Main 场景的 Canvas 节点上。
  * 游戏启动后处于 Ready 状态，由开始界面（StartPanel）点击「开始游戏」按钮调用
@@ -40,6 +45,8 @@ export const GAME_TIME_LIMIT = 600;
  * `notifyBossSpawned()` / `notifyBossDefeated()` 回报给本组件。
  * 另外提供暂停能力：暂停时通过 director 派发 GAME_PAUSE_CHANGE 全局事件，
  * 玩家、敌人、子弹、刷怪逻辑各自监听该事件冻结自身行为。
+ * 失败结算后还支持一次广告复活：`canRevive()` 判断本局是否还能复活，
+ * `reviveGame()` 把状态切回 Running 并发 PLAYER_REVIVE 让玩家按比例恢复生命值。
  */
 @ccclass('GameManager')
 export class GameManager extends Component {
@@ -64,6 +71,9 @@ export class GameManager extends Component {
     /** 是否由玩家主动退出结束的对局（主动退出时不展示结算界面） */
     private _quitted: boolean = false;
 
+    /** 本局是否已使用过广告复活：每局限一次，开始新对局时重置 */
+    private _reviveUsed: boolean = false;
+
     /** 是否处于暂停状态（升级选卡等场景使用） */
     private _paused: boolean = false;
 
@@ -74,6 +84,9 @@ export class GameManager extends Component {
     private _playerLevel: number = 1;
     private _kills: number = 0;
 
+    /** 默认隐藏、但必须靠 onLoad 注册事件的界面节点名 */
+    private static readonly HIDDEN_PANELS: readonly string[] = ['PausePanel', 'EndPanel', 'GuidePanel'];
+
     onLoad() {
         this._gameTime = 0;
         this._state = GameState.Ready;
@@ -82,12 +95,31 @@ export class GameManager extends Component {
         this._bossSpawned = false;
         this._bossDefeated = false;
         this._quitted = false;
+        this._reviveUsed = false;
         this._playerLevel = 1;
         this._kills = 0;
 
         EventBus.on(PLAYER_DEAD, this.onPlayerDead, this);
         EventBus.on<PlayerLevelUpPayload>(PLAYER_LEVEL_UP, this.onPlayerLevelUp, this);
         EventBus.on<EnemyKilledPayload>(ENEMY_KILLED, this.onEnemyKilled, this);
+
+        this.warmUpHiddenPanels();
+    }
+
+    /**
+     * 兜底初始化默认隐藏的界面。
+     * Cocos 不会为未激活节点调用 onLoad：若暂停/结算/引导界面在场景里被存成未激活，
+     * 它们的事件监听与按钮绑定都不会注册，界面会永远打不开（例如点了暂停按钮却没有任何反应）。
+     * 这里对仍未激活的面板先激活再同步隐藏，onLoad 会在激活瞬间执行，界面不会真正渲染出来。
+     */
+    private warmUpHiddenPanels() {
+        for (const name of GameManager.HIDDEN_PANELS) {
+            const panel = this.node.getChildByName(name);
+            if (!panel?.isValid || panel.active) continue;
+
+            panel.active = true;
+            panel.active = false;
+        }
     }
 
     onDestroy() {
@@ -144,6 +176,7 @@ export class GameManager extends Component {
         this._bossSpawned = false;
         this._bossDefeated = false;
         this._quitted = false;
+        this._reviveUsed = false;
         this.setState(GameState.Running);
     }
 
@@ -185,6 +218,32 @@ export class GameManager extends Component {
 
         this._quitted = true;
         this.endGame(false);
+    }
+
+    /**
+     * 本局是否还能通过广告复活：仅失败结算、且本局尚未使用过时可复活。
+     * 胜利结算与玩家主动退出都不提供复活。
+     */
+    public canRevive(): boolean {
+        return this._state === GameState.Over && !this._isWin && !this._reviveUsed;
+    }
+
+    /**
+     * 广告复活：把对局从结算状态恢复为运行状态，并让玩家按 REVIVE_HP_RATIO 恢复生命值。
+     * 每局只能成功一次，状态不满足（非失败结算 / 已用过）时返回 false。
+     * @returns 是否复活成功
+     */
+    public reviveGame(): boolean {
+        if (!this.canRevive()) return false;
+
+        this._reviveUsed = true;
+        this._isWin = false;
+        this._quitted = false;
+
+        // 先恢复玩家生命值，再切回 Running：BattleManager 收到状态变化后会重新开始刷怪
+        EventBus.emit<PlayerRevivePayload>(PLAYER_REVIVE, { hpRatio: REVIVE_HP_RATIO });
+        this.setState(GameState.Running);
+        return true;
     }
 
     /**

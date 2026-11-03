@@ -1,6 +1,7 @@
-import { _decorator, Component, Node, Label, Color, find } from 'cc';
+import { _decorator, Component, Node, Label, Color, Button, find } from 'cc';
 import { GameManager } from './GameManager';
 import { AudioManager, SfxType } from './AudioManager';
+import { AdManager, AdFailReason } from './AdManager';
 import { EventBus } from './EventBus';
 import { GAME_OVER, GameOverPayload } from './GameEvents';
 const { ccclass, property } = _decorator;
@@ -20,6 +21,12 @@ function pad2(value: number): string {
  * 玩家从暂停界面主动退出时不展示本界面。
  * 点击「返回主界面」按钮会重新加载场景，重置全部数据并回到开始界面。
  *
+ * 失败结算时额外提供「观看广告，原地复活」按钮：
+ * - 点击后通过 AdManager 播放激励视频，广告期间按钮禁用，避免重复发起；
+ * - 只有完整观看广告才调用 GameManager.reviveGame() 关闭界面并恢复对局，
+ *   玩家生命值按比例恢复；中途关闭广告或加载失败时结算界面保持不变；
+ * - 每局只能复活一次，由 GameManager 记录，复活后再次阵亡不再显示该按钮。
+ *
  * 统计数据来源是 `GAME_OVER` 事件携带的 payload，由 GameManager 汇总后广播，
  * 本界面因此不再持有玩家组件，也不需要在结算时去读玩家身上的字段。
  */
@@ -37,6 +44,9 @@ export class EndPanel extends Component {
     @property({ type: Node, tooltip: '“返回主界面”按钮节点' })
     backButton: Node | null = null;
 
+    @property({ type: Node, tooltip: '“观看广告，原地复活”按钮节点，仅失败结算且本局未复活过时显示' })
+    reviveButton: Node | null = null;
+
     /** 胜负结果文本 */
     private readonly _winText: string = '胜利';
     private readonly _loseText: string = '失败';
@@ -44,6 +54,9 @@ export class EndPanel extends Component {
     /** 胜负结果配色：胜利为金色，失败为暗红 */
     private readonly _winColor: Color = new Color(240, 205, 96, 255);
     private readonly _loseColor: Color = new Color(206, 74, 66, 255);
+
+    /** 是否正在等待广告结果：广告展示期间忽略重复点击 */
+    private _reviveRequesting: boolean = false;
 
     onLoad() {
         if (!this.gameManager?.isValid) {
@@ -53,6 +66,9 @@ export class EndPanel extends Component {
 
         if (this.backButton?.isValid) {
             this.backButton.on(Node.EventType.TOUCH_END, this.onBackClick, this);
+        }
+        if (this.reviveButton?.isValid) {
+            this.reviveButton.on(Node.EventType.TOUCH_END, this.onReviveClick, this);
         }
         EventBus.on<GameOverPayload>(GAME_OVER, this.onGameOver, this);
 
@@ -65,6 +81,9 @@ export class EndPanel extends Component {
         if (this.backButton?.isValid) {
             this.backButton.off(Node.EventType.TOUCH_END, this.onBackClick, this);
         }
+        if (this.reviveButton?.isValid) {
+            this.reviveButton.off(Node.EventType.TOUCH_END, this.onReviveClick, this);
+        }
         EventBus.off<GameOverPayload>(GAME_OVER, this.onGameOver, this);
     }
 
@@ -73,6 +92,7 @@ export class EndPanel extends Component {
         if (!payload || payload.quitted) return;
 
         this.refresh(payload);
+        this.refreshReviveButton();
         this.node.active = true;
     }
 
@@ -94,6 +114,63 @@ export class EndPanel extends Component {
             `坚持时间 ${pad2(Math.floor(total / 60))}:${pad2(total % 60)}\n` +
             `达到等级 Lv.${level}\n` +
             `击败敌人 ${kills}`;
+    }
+
+    /** 复活按钮只在失败结算、且本局还没用过复活时显示 */
+    private refreshReviveButton() {
+        this._reviveRequesting = false;
+        if (!this.reviveButton?.isValid) return;
+
+        this.reviveButton.active = !!this.gameManager?.canRevive();
+        this.setReviveButtonInteractable(true);
+    }
+
+    /** 点击「观看广告，原地复活」：播放激励视频，完整观看后才恢复对局 */
+    private onReviveClick() {
+        if (this._reviveRequesting) return;
+
+        AudioManager.play(SfxType.UiClick);
+
+        const manager = this.gameManager;
+        if (!manager?.canRevive()) {
+            this.refreshReviveButton();
+            return;
+        }
+
+        this._reviveRequesting = true;
+        this.setReviveButtonInteractable(false);
+
+        AdManager.show(
+            () => this.onReviveReward(),
+            (reason) => this.onReviveFail(reason),
+        );
+    }
+
+    /** 广告完整观看：关闭结算界面并让对局继续；复活失败（状态已变）时恢复按钮 */
+    private onReviveReward() {
+        this._reviveRequesting = false;
+
+        if (!this.gameManager?.reviveGame()) {
+            this.refreshReviveButton();
+            return;
+        }
+
+        this.node.active = false;
+    }
+
+    /** 广告中途关闭或加载失败：不复活，保持结算界面并允许再次尝试 */
+    private onReviveFail(reason: AdFailReason) {
+        this._reviveRequesting = false;
+        if (!this.reviveButton?.isValid) return;
+
+        console.warn(`[EndPanel] 广告未完成，本次不复活（${reason}）`);
+        this.setReviveButtonInteractable(true);
+    }
+
+    /** 切换复活按钮的交互状态，防止广告播放期间重复发起 */
+    private setReviveButtonInteractable(interactable: boolean) {
+        const button = this.reviveButton?.getComponent(Button);
+        if (button) button.interactable = interactable;
     }
 
     /** 点击「返回主界面」：播放 UI 音效、重新加载场景重置对局，回到开始界面 */

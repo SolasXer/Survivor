@@ -78,6 +78,9 @@ export const GAME_PAUSE_CHANGE = 'game/pause-change';
 /** 对局结束：携带胜负与统计，供结算界面显示 */
 export const GAME_OVER = 'game/over';
 
+/** 玩家复活：由 GameManager 在广告复活成功后发出，玩家侧据此恢复生命值 */
+export const PLAYER_REVIVE = 'player/revive';
+
 // ---------------------------------------------------------------- 输入
 
 /** 摇杆按下：回调参数为方向向量（Vec2） */
@@ -109,6 +112,12 @@ export interface HealthChangedPayload {
 export interface EntityDiedPayload {
     /** 阵亡实体所在节点 */
     node: Node | null;
+}
+
+/** 玩家复活：hpRatio 为复活后恢复的生命值比例（0~1） */
+export interface PlayerRevivePayload {
+    /** 复活后恢复的生命值比例（0~1） */
+    hpRatio: number;
 }
 
 /** 玩家生命值 */

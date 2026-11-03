@@ -12,7 +12,9 @@ import { AudioManager, SfxType } from './AudioManager';
 import { HealthComponent } from './HealthComponent';
 import { MovementComponent } from './MovementComponent';
 import { ConfigManager } from './ConfigManager';
+import { BulletPool } from './BulletPool';
 import { EventBus } from './EventBus';
+import { getNodeDistanceSq } from './utils/MathUtils';
 import {
     DAMAGE_PLAYER,
     ENEMY_KILLED,
@@ -26,6 +28,7 @@ import {
     PLAYER_EXP_CHANGED,
     PLAYER_HP_CHANGED,
     PLAYER_LEVEL_UP,
+    PLAYER_REVIVE,
     PLAYER_SKILLS_CHANGED,
     SKILL_SELECTED,
     DamagePlayerPayload,
@@ -35,6 +38,7 @@ import {
     PlayerExpChangedPayload,
     PlayerHpChangedPayload,
     PlayerLevelUpPayload,
+    PlayerRevivePayload,
     PlayerSkillsChangedPayload,
     SkillSelectedPayload,
 } from './GameEvents';
@@ -70,6 +74,9 @@ export class PlayerController extends Component {
 
     @property({ type: Node, tooltip: '子弹生成后统一挂载的容器节点（Main 场景中的 BulletContainer）' })
     bulletContainer: Node | null = null;
+
+    @property({ tooltip: '子弹对象池容量：开局预先实例化多少个子弹节点并隐藏备用' })
+    bulletPoolSize: number = 30;
 
     @property({ tooltip: '当前等级，初始为 1 级' })
     level: number = 1;
@@ -107,6 +114,9 @@ export class PlayerController extends Component {
     /** 移动组件：方向与位移全部转发给它 */
     private _movement: MovementComponent | null = null;
 
+    /** 子弹对象池，开局预热后供射击复用 */
+    private _bulletPool: BulletPool | null = null;
+
     /** 生命值组件，节点上未挂载时自动补挂一个 */
     public getHealth(): HealthComponent | null {
         if (this._health?.isValid) return this._health;
@@ -135,6 +145,7 @@ export class PlayerController extends Component {
         EventBus.on<DamagePlayerPayload>(DAMAGE_PLAYER, this.onDamagePlayer, this);
         EventBus.on<EnemyKilledPayload>(ENEMY_KILLED, this.onEnemyKilled, this);
         EventBus.on<SkillSelectedPayload>(SKILL_SELECTED, this.onSkillSelected, this);
+        EventBus.on<PlayerRevivePayload>(PLAYER_REVIVE, this.onRevive, this);
 
         // 组件缺省时自动补挂，保证旧场景/预制件也能直接运行
         this.getHealth();
@@ -190,6 +201,9 @@ export class PlayerController extends Component {
      * 而玩家的 onLoad 可能早于它们执行，故在此补发一次初始快照。
      */
     start() {
+        // 场景加载完成后再预热对象池，避免在 onLoad 阶段改动节点层级
+        this.initBulletPool();
+
         this.broadcastHp();
         this.broadcastExp();
         this.broadcastSkills();
@@ -205,6 +219,7 @@ export class PlayerController extends Component {
         EventBus.off<DamagePlayerPayload>(DAMAGE_PLAYER, this.onDamagePlayer, this);
         EventBus.off<EnemyKilledPayload>(ENEMY_KILLED, this.onEnemyKilled, this);
         EventBus.off<SkillSelectedPayload>(SKILL_SELECTED, this.onSkillSelected, this);
+        EventBus.off<PlayerRevivePayload>(PLAYER_REVIVE, this.onRevive, this);
     }
 
     /**
@@ -226,6 +241,19 @@ export class PlayerController extends Component {
         if (!payload || payload.node !== this.node) return;
 
         EventBus.emit(PLAYER_DEAD);
+    }
+
+    /**
+     * 广告复活：清除阵亡标记并按比例恢复生命值。
+     * 生命值组件 reset 后会发出 HEALTH_CHANGED，HUD 随之刷新。
+     */
+    private onRevive(payload: PlayerRevivePayload) {
+        const health = this.getHealth();
+        if (!health) return;
+
+        const ratio = Math.min(1, Math.max(0, payload?.hpRatio ?? 0.5));
+        const maxHp = Math.max(1, Math.round(health.maxHp));
+        health.reset(Math.max(1, Math.round(maxHp * ratio)), maxHp);
     }
 
     /** 受到伤害请求：由敌人接触伤害、敌人子弹发出，统一在此结算 */
@@ -438,7 +466,6 @@ export class PlayerController extends Component {
         const scene = director.getScene();
         if (!scene) return null;
 
-        const selfPos = this.node.worldPosition;
         const rangeValue = Math.abs(range);
         const rangeSq = rangeValue * rangeValue;
 
@@ -450,10 +477,7 @@ export class PlayerController extends Component {
             const node = enemy.node;
             if (!enemy.isValid || !node?.isValid) continue;
 
-            const pos = node.worldPosition;
-            const dx = pos.x - selfPos.x;
-            const dy = pos.y - selfPos.y;
-            const distSq = dx * dx + dy * dy;
+            const distSq = getNodeDistanceSq(this.node, node);
             if (distSq > nearestDistSq) continue;
 
             nearestDistSq = distSq;
@@ -463,14 +487,43 @@ export class PlayerController extends Component {
         return nearest;
     }
 
+    /** 创建子弹对象池并预热到 `bulletPoolSize` 个隐藏节点 */
+    private initBulletPool() {
+        // 预热时玩家可能还没拿到容器引用，这里统一以 BulletContainer / 父节点为准
+        const parent = this.bulletContainer?.isValid ? this.bulletContainer : this.node.parent;
+        this._bulletPool = new BulletPool(this.bulletPrefab, parent, this.bulletPoolSize);
+        this._bulletPool.prewarm();
+    }
+
+    /** 取子弹对象池，未创建时按当前配置补建一个 */
+    public getBulletPool(): BulletPool | null {
+        if (!this._bulletPool) this.initBulletPool();
+        return this._bulletPool;
+    }
+
     /**
-     * 从子弹预制件实例化子弹：位置为玩家当前位置，方向由玩家指向目标。
+     * 取一个可用的子弹节点：优先从对象池复用，池中没有闲置节点时才临时实例化。
+     * 取到的节点已挂到飞行容器并处于激活状态，调用方紧接着写入位置与方向即可。
+     */
+    private acquireBulletNode(): Node | null {
+        const pooled = this.getBulletPool()?.acquire() ?? null;
+        if (pooled?.isValid) return pooled;
+
+        const prefab = this.bulletPrefab;
+        if (!prefab?.isValid) return null;
+
+        const node = instantiate(prefab);
+        node.setParent(this.bulletContainer ?? this.node.parent);
+        return node;
+    }
+
+    /**
+     * 发射子弹：位置为玩家当前位置，方向由玩家指向目标。
      * 发射数量由技能等级表中的「多重射击」决定，多发子弹按角度均匀散开；
-     * 每发子弹生成后立即写入当前技能等级表算出的增强属性。
+     * 每发子弹拿到后立即写入当前技能等级表算出的增强属性。
      */
     private shoot(target: Node, stats: BulletSkillStats) {
-        const prefab = this.bulletPrefab;
-        if (!prefab) return;
+        if (!this.bulletPrefab) return;
 
         const selfPos = this.node.worldPosition;
         const targetPos = target.worldPosition;
@@ -488,8 +541,10 @@ export class PlayerController extends Component {
         for (let i = 0; i < count; i++) {
             const angle = baseAngle + (i - offsetBase) * MULTI_SHOT_ANGLE_STEP;
 
-            const bullet = instantiate(prefab);
-            bullet.setParent(this.bulletContainer ?? this.node.parent);
+            // 复用对象池中的节点：已激活并挂在飞行容器下，这里只写位置与方向
+            const bullet = this.acquireBulletNode();
+            if (!bullet?.isValid) break;
+
             bullet.setWorldPosition(selfPos);
 
             const comp = bullet.getComponent(Bullet);

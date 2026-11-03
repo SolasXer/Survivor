@@ -80,6 +80,10 @@
                     "physics-2d": "physics-2d-builtin"
                 }
             }
+        },
+        "designResolution": {
+            "fitWidth": false,
+            "fitHeight": true
         }
     },
     "version": "1.0.0",

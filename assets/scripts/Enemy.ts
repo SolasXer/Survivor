@@ -1,6 +1,7 @@
 import { _decorator, Component, Node, Prefab, Sprite, Color, Collider2D, Contact2DType, IPhysics2DContact, Vec2, find, instantiate, director } from 'cc';
 import { DEFAULT_ENEMY_ID, EnemyConfig, EnemyId, getEnemyConfigOrDefault } from './EnemyConfig';
 import { ConfigManager } from './ConfigManager';
+import { getNodeDistanceSq } from './utils/MathUtils';
 import { EnemyBullet } from './EnemyBullet';
 import { DissolveEffect } from './DissolveEffect';
 import { AudioManager, SfxType } from './AudioManager';
@@ -32,6 +33,13 @@ const BULLET_CONTAINER_PATH = 'Canvas/BulletContainer';
 
 /** 受击闪烁时 Sprite 染成的颜色 */
 const HIT_FLASH_COLOR = new Color(255, 90, 80, 255);
+
+/**
+ * 追踪目标的重算间隔（帧）：
+ * 指向玩家的方向与距离每 RETARGET_FRAME_INTERVAL 帧才重算一次，
+ * 中间那些帧直接沿用上一次缓存的方向继续移动，省掉每帧的世界坐标读取与开方。
+ */
+const RETARGET_FRAME_INTERVAL = 3;
 
 /**
  * 敌人：挂载在 Slime 等各类敌人预制件的根节点上，所有敌人共用本脚本。
@@ -172,6 +180,18 @@ export class Enemy extends Component {
     /** 自动查找到的敌人子弹容器，避免每次开火都做一次查找 */
     private _bulletContainer: Node | null = null;
 
+    /** 缓存的指向玩家的方向（玩家世界坐标 - 自身世界坐标，未归一化） */
+    private readonly _cachedDir: Vec2 = new Vec2();
+
+    /** 缓存的与玩家之间的距离平方，与 `_cachedDir` 同时刷新 */
+    private _cachedDistanceSq: number = 0;
+
+    /** 方向 / 距离缓存是否已生效，未生效时敌人不移动、不判断射击距离 */
+    private _hasChaseCache: boolean = false;
+
+    /** 重算节拍计数，每帧 +1，用于按 RETARGET_FRAME_INTERVAL 节流 */
+    private _retargetTick: number = 0;
+
     /** 生命值组件：血量的读写全部转发给它 */
     private _health: HealthComponent | null = null;
 
@@ -246,9 +266,13 @@ export class Enemy extends Component {
         this._bulletContainer = null;
         this._dissolve = null;
 
+        // 追踪缓存复位：下次 update 会立刻重算一次方向与距离
+        this.resetChaseCache();
+
         // 生成时先按配置初始化属性，之后才开始行动
         this.applyConfig(this.enemyId);
 
+        // 玩家节点只在初始化时查找一次并缓存，update 中不再反复查找
         this._target = this.findPlayer();
 
         this._collider = this.getComponent(Collider2D);
@@ -272,6 +296,7 @@ export class Enemy extends Component {
         }
         this._target = null;
         this._bulletContainer = null;
+        this.resetChaseCache();
     }
 
     onDestroy() {
@@ -390,9 +415,8 @@ export class Enemy extends Component {
         // 击退位移期间不追击玩家
         if (this.updateKnockback(dt)) return;
 
-        if (!this._target?.isValid) {
-            this._target = this.findPlayer();
-        }
+        // 按帧刷新「指向玩家的方向 + 距离」缓存，未刷新的帧沿用上一次的结果
+        this.updateChaseCache();
 
         // 远程敌人进入保持距离后停下射击，近战敌人一路追击
         if (this.ranged) {
@@ -460,20 +484,15 @@ export class Enemy extends Component {
      * 距离小于等于 `keepDistance` 时停止移动，并按 `fireInterval` 定时向玩家发射子弹。
      */
     private updateRanged(dt: number) {
-        const target = this._target;
-        if (!target?.isValid) return;
+        // 方向与距离取自按帧节流维护的缓存，未缓存时（尚未算出过 / 玩家丢失）不行动
+        if (!this._hasChaseCache) return;
 
-        const selfPos = this.node.worldPosition;
-        const targetPos = target.worldPosition;
-
-        const dx = targetPos.x - selfPos.x;
-        const dy = targetPos.y - selfPos.y;
-        const distanceSq = dx * dx + dy * dy;
         const keep = Math.max(0, this.keepDistance);
+        const dir = this._cachedDir;
 
         // 距离玩家较远：继续靠近，最多前进到保持距离处，避免越过后抖动
-        if (distanceSq > keep * keep) {
-            this.getMovement()?.moveToward(dx, dy, keep, dt, this.getSpeedScale());
+        if (this._cachedDistanceSq > keep * keep) {
+            this.getMovement()?.moveToward(dir.x, dir.y, keep, dt, this.getSpeedScale());
             return;
         }
 
@@ -482,8 +501,8 @@ export class Enemy extends Component {
         if (this._fireTimer > 0) return;
 
         this._fireTimer = Math.max(0.05, this.fireInterval);
-        const distance = Math.sqrt(distanceSq);
-        this.fire(distance > 0 ? dx / distance : 0, distance > 0 ? dy / distance : 0);
+        const distance = Math.sqrt(this._cachedDistanceSq);
+        this.fire(distance > 0 ? dir.x / distance : 0, distance > 0 ? dir.y / distance : 0);
     }
 
     /** 向给定方向发射一颗敌人子弹 */
@@ -560,15 +579,57 @@ export class Enemy extends Component {
         return this.node.parent?.isValid ? this.node.parent : director.getScene();
     }
 
-    /** 每帧朝玩家所在方向移动（近战敌人的行为） */
+    /** 每帧朝玩家所在方向移动（近战敌人的行为）：方向取自按帧节流维护的缓存 */
     private chase(dt: number) {
+        if (!this._hasChaseCache) return;
+
+        const dir = this._cachedDir;
+        this.getMovement()?.moveToward(dir.x, dir.y, 0, dt, this.getSpeedScale());
+    }
+
+    /**
+     * 按帧刷新「指向玩家的方向 + 距离平方」缓存：
+     * 每 `RETARGET_FRAME_INTERVAL` 帧才重新算一次，中间的帧直接沿用上次结果，
+     * 由追击与远程判定共用；首次调用（刚生成）与缓存尚未生成时立即重算。
+     */
+    private updateChaseCache(): void {
+        const due = this.consumeRetargetTick();
+        if (!due && this._hasChaseCache) return;
+
+        // 玩家引用失效时（例如玩家节点被销毁）按同样的节流间隔补查一次，而非每帧查找
+        if (!this._target?.isValid) {
+            this._target = this.findPlayer();
+        }
+
         const target = this._target;
-        if (!target?.isValid) return;
+        if (!target?.isValid) {
+            this._hasChaseCache = false;
+            return;
+        }
 
         const selfPos = this.node.worldPosition;
         const targetPos = target.worldPosition;
+        this._cachedDir.set(targetPos.x - selfPos.x, targetPos.y - selfPos.y);
+        this._cachedDistanceSq = getNodeDistanceSq(this.node, target);
+        this._hasChaseCache = true;
+    }
 
-        this.getMovement()?.moveToward(targetPos.x - selfPos.x, targetPos.y - selfPos.y, 0, dt, this.getSpeedScale());
+    /**
+     * 每帧调用一次并推进节拍计数，间隔 `RETARGET_FRAME_INTERVAL` 帧返回一次 true。
+     * 计数从 0 开始，因此刚生成的那一帧必定返回 true（立即算出首份缓存）。
+     */
+    private consumeRetargetTick(): boolean {
+        const tick = this._retargetTick;
+        ++this._retargetTick;
+        return tick % RETARGET_FRAME_INTERVAL === 0;
+    }
+
+    /** 清空方向与距离缓存，使下一次 update 立即重新计算 */
+    private resetChaseCache(): void {
+        this._cachedDir.set(0, 0);
+        this._cachedDistanceSq = 0;
+        this._hasChaseCache = false;
+        this._retargetTick = 0;
     }
 
     /** 当前移动速度倍率：减速比例越高走得越慢，交给移动组件按比例缩放速度 */

@@ -14,6 +14,9 @@ const CANVAS_PATH = 'Canvas';
  * `GameManager.pauseGame()` 暂停对局），两者之间没有直接引用。
  * - 点击「继续游戏」：恢复对局并隐藏本界面；
  * - 点击「退出游戏」：结束对局并回到开始界面。
+ *
+ * 注意：Cocos 不会为未激活节点调用 `onLoad`，因此 PausePanel 在场景里保持激活，
+ * 由本组件在 `onLoad` 末尾自行隐藏；否则监听注册不上，点暂停按钮界面永远打不开。
  */
 @ccclass('PausePanel')
 export class PausePanel extends Component {
@@ -43,6 +46,9 @@ export class PausePanel extends Component {
         }
 
         EventBus.on(UI_PAUSE_REQUESTED, this.show, this);
+
+        // 默认隐藏：节点在场景中保持激活（否则 onLoad 不会执行），显示与隐藏统一由本组件控制
+        this.node.active = false;
     }
 
     onDestroy() {
