@@ -137,6 +137,14 @@ export class Enemy extends Component {
     /** 击败该敌人后玩家获得的经验值，来自配置 */
     exp: number = 0;
 
+    /**
+     * 是否已阵亡。阵亡后节点会继续存在到溶解动画播完，
+     * 这段时间内不再参与自动瞄准与受击结算，调用方需据此过滤。
+     */
+    public isDead(): boolean {
+        return this._dead;
+    }
+
     /** 当前生效的配置，由 enemyId 决定 */
     private _config: EnemyConfig | null = null;
 
@@ -277,6 +285,8 @@ export class Enemy extends Component {
 
         this._collider = this.getComponent(Collider2D);
         if (this._collider) {
+            // 阵亡时会把碰撞体关掉，复用节点时在这里恢复，否则敌人将无法被子弹命中
+            this._collider.enabled = true;
             this._collider.on(Contact2DType.BEGIN_CONTACT, this.onBeginContact, this);
         }
 
@@ -747,6 +757,11 @@ export class Enemy extends Component {
         if (this._dead) return;
         this._dead = true;
 
+        // 立刻关闭碰撞体：溶解期间尸体不应再参与物理碰撞，
+        // 否则子弹命中尸体仍会触发飘字、命中音效并把自己回收掉，看起来尸体还能被打。
+        const collider = this._collider ?? this.getComponent(Collider2D);
+        if (collider) collider.enabled = false;
+
         const payload: EnemyKilledPayload = {
             node: this.node,
             enemyId: this.enemyId,
@@ -772,10 +787,16 @@ export class Enemy extends Component {
 
         dissolve.onFinishCallback = () => this.destroySelf();
         dissolve.play();
+
+        // 兜底销毁：溶解进度可能因为暂停（pause 之后没有对应的 resume）或材质异常停在中间，
+        // onFinishCallback 不一定会触发，这里按动画时长再补一次，避免尸体永久留在场上。
+        this.unscheduleAllCallbacks();
+        this.scheduleOnce(() => this.destroySelf(), Math.max(0.1, dissolve.duration + 0.1));
     }
 
     /** 销毁敌人节点 */
     private destroySelf() {
+        this.unscheduleAllCallbacks();
         if (this.node?.isValid) {
             this.node.destroy();
         }

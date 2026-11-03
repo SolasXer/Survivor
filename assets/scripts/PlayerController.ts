@@ -475,7 +475,8 @@ export class PlayerController extends Component {
         const enemies = scene.getComponentsInChildren(Enemy);
         for (const enemy of enemies) {
             const node = enemy.node;
-            if (!enemy.isValid || !node?.isValid) continue;
+            // 跳过阵亡但还在播放溶解动画的敌人：节点尚未销毁，但不应再成为攻击目标
+            if (!enemy.isValid || !node?.isValid || enemy.isDead()) continue;
 
             const distSq = getNodeDistanceSq(this.node, node);
             if (distSq > nearestDistSq) continue;
