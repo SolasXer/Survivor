@@ -20,7 +20,8 @@
         "keepDistance": 320,
         "fireInterval": 2,
         "bulletSpeed": 280,
-        "bulletDamage": 8
+        "bulletDamage": 8,
+        "fireRangeScale": 2
       }
     },
     "boss": {

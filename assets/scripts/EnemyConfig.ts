@@ -49,6 +49,12 @@ export interface EnemyRangedConfig {
     bulletSpeed: number;
     /** 子弹命中玩家造成的伤害 */
     bulletDamage: number;
+    /**
+     * 开火射程相对 keepDistance 的倍数（可选，默认 2）：
+     * 追击途中与玩家的距离小于等于 keepDistance × 该倍数时就允许边追边打，
+     * 否则敌人（尤其是移速低于玩家时）可能永远追不进 keepDistance，一发子弹都打不出来。
+     */
+    fireRangeScale?: number;
 }
 
 /** 单个敌人的配置 */

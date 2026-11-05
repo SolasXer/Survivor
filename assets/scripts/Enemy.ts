@@ -80,6 +80,9 @@ export class Enemy extends Component {
     @property({ tooltip: '远程敌人的射击间隔（秒）' })
     fireInterval: number = 1.8;
 
+    @property({ tooltip: '开火射程相对 keepDistance 的倍数：追击途中距离小于等于 keepDistance × 该倍数时即可边追边打，默认 2' })
+    fireRangeScale: number = 2;
+
     @property({ type: Prefab, tooltip: '远程敌人发射的子弹预制件（EnemyBullet）' })
     bulletPrefab: Prefab | null = null;
 
@@ -385,6 +388,8 @@ export class Enemy extends Component {
             this.fireInterval = Math.max(0, ranged.fireInterval);
             this.bulletSpeed = Math.max(0, ranged.bulletSpeed);
             this.bulletDamage = Math.max(0, ranged.bulletDamage);
+            // 缺省按 2 倍处理：只允许站桩射击时，移速低于玩家的远程敌人可能永远追不进射程
+            this.fireRangeScale = Math.max(1, ranged.fireRangeScale ?? 2);
         }
 
         // 第二阶段参数：配置带 phase 的敌人在生命值过低时进入强化阶段
@@ -491,7 +496,11 @@ export class Enemy extends Component {
     /**
      * 远程敌人的行为：
      * 与玩家的距离大于 `keepDistance` 时朝玩家靠近；
-     * 距离小于等于 `keepDistance` 时停止移动，并按 `fireInterval` 定时向玩家发射子弹。
+     * 距离小于等于 `keepDistance` 时停止移动，按 `fireInterval` 定时向玩家发射子弹。
+     *
+     * 开火射程为 `keepDistance × fireRangeScale`（默认 2 倍）：追击途中已进入该射程就
+     * 边追边打。只允许站桩射击时，移速低于玩家的远程敌人永远追不进保持距离，
+     * 表现就是一发子弹都打不出来——开局包围波次把敌人刷得很远时尤其明显。
      */
     private updateRanged(dt: number) {
         // 方向与距离取自按帧节流维护的缓存，未缓存时（尚未算出过 / 玩家丢失）不行动
@@ -499,19 +508,22 @@ export class Enemy extends Component {
 
         const keep = Math.max(0, this.keepDistance);
         const dir = this._cachedDir;
+        const distance = Math.sqrt(this._cachedDistanceSq);
 
         // 距离玩家较远：继续靠近，最多前进到保持距离处，避免越过后抖动
-        if (this._cachedDistanceSq > keep * keep) {
+        if (distance > keep) {
             this.getMovement()?.moveToward(dir.x, dir.y, keep, dt, this.getSpeedScale());
-            return;
         }
 
-        // 已进入保持距离：停止移动，按间隔开火
+        // 开火射程：保持距离 × 倍数；未进入射程时只追不打，射击计时保持不动
+        const fireRange = keep * Math.max(1, this.fireRangeScale);
+        if (distance > fireRange) return;
+
+        // 已进入射程：按间隔开火
         this._fireTimer -= dt;
         if (this._fireTimer > 0) return;
 
         this._fireTimer = Math.max(0.05, this.fireInterval);
-        const distance = Math.sqrt(this._cachedDistanceSq);
         this.fire(distance > 0 ? dir.x / distance : 0, distance > 0 ? dir.y / distance : 0);
     }
 
