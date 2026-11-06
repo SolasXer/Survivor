@@ -3,7 +3,7 @@ import { GameManager, GameState, GAME_STATE_CHANGE, GAME_TIME_LIMIT } from './Ga
 import { Enemy } from './Enemy';
 import { EventBus } from './EventBus';
 import { ConfigManager } from './ConfigManager';
-import { GAME_PAUSE_CHANGE } from './GameEvents';
+import { GAME_PAUSE_CHANGE, ENEMY_KILLED, EnemyKilledPayload } from './GameEvents';
 import { EnemyId } from './EnemyConfig';
 const { ccclass, property } = _decorator;
 
@@ -100,14 +100,20 @@ export class BattleManager extends Component {
     /** 是否已进入 Boss 阶段（停止生成普通敌人） */
     private _bossPhase: boolean = false;
 
-    /** 当前场上的 Boss 节点，用于判定是否被击败 */
-    private _boss: Node | null = null;
+    /**
+     * 本局 Boss 是否已被玩家击杀。
+     * 胜利判定只认 ENEMY_KILLED（enemyId 为 Boss）这一确定性事件，
+     * 不再用「Boss 节点失效」推断：溶解、清场、复活等时序都可能销毁节点，
+     * 却不代表 Boss 真的被击败，按节点失效判会误把玩家阵亡结算成胜利。
+     */
+    private _bossKilled: boolean = false;
 
     onLoad() {
         // Canvas 上绑定的摄像机，用于计算屏幕可见范围与中心
         this._camera = this.node.getComponent(Canvas)?.cameraComponent ?? null!;
 
         EventBus.on<boolean>(GAME_PAUSE_CHANGE, this.onPauseChange, this);
+        EventBus.on<EnemyKilledPayload>(ENEMY_KILLED, this.onEnemyKilled, this);
 
         if (!this.gameManager) {
             this.gameManager = this.getComponent(GameManager);
@@ -146,6 +152,7 @@ export class BattleManager extends Component {
 
     onDestroy() {
         EventBus.off<boolean>(GAME_PAUSE_CHANGE, this.onPauseChange, this);
+        EventBus.off<EnemyKilledPayload>(ENEMY_KILLED, this.onEnemyKilled, this);
 
         if (this.gameManager?.node?.isValid) {
             this.gameManager.node.off(GAME_STATE_CHANGE, this.onGameStateChange, this);
@@ -162,7 +169,7 @@ export class BattleManager extends Component {
         if (!this._spawning || this._paused) return;
 
         this.updateBossPhase();
-        // Boss 阶段不再生成普通敌人，只等待 Boss 被击败
+        // Boss 阶段不再生成普通敌人，胜利由 onEnemyKilled 的击杀事件驱动
         if (this._bossPhase) return;
 
         const interval = this.getCurrentSpawnInterval();
@@ -171,6 +178,15 @@ export class BattleManager extends Component {
             this._timer -= interval;
             this.spawnEnemy();
         }
+    }
+
+    /** 敌人被击杀：只有 Boss 的击杀事件才判定胜利，其余仅由 GameManager 计数 */
+    private onEnemyKilled(payload: EnemyKilledPayload) {
+        if (!payload || payload.enemyId !== EnemyId.Boss) return;
+        if (this._bossKilled) return;
+
+        this._bossKilled = true;
+        this.gameManager?.notifyBossDefeated();
     }
 
     /** 游戏状态变化：Running 重置计时并开始生成，Over 停止生成并清理容器 */
@@ -186,15 +202,11 @@ export class BattleManager extends Component {
     }
 
     /**
-     * Boss 阶段的推进：
-     * 未进入时判断游戏时间是否到达出场时间，到达则停止普通敌人并生成 Boss；
-     * 已进入时检查 Boss 节点是否还有效，失效即视为被击败，通知 GameManager 判定胜利。
+     * Boss 阶段的推进：游戏时间到达出场时间时停止生成普通敌人并生成 Boss。
+     * Boss 是否被击败由 onEnemyKilled 的击杀事件判定，这里不再轮询节点状态。
      */
     private updateBossPhase() {
-        if (this._bossPhase) {
-            this.checkBossDefeated();
-            return;
-        }
+        if (this._bossPhase || this._bossKilled) return;
 
         if (this.getGameTime() < this.getBossSpawnTime()) return;
 
@@ -212,14 +224,6 @@ export class BattleManager extends Component {
         this.gameManager?.endGame(true);
     }
 
-    /** Boss 节点已销毁即视为被击败 */
-    private checkBossDefeated() {
-        if (!this._boss || this._boss.isValid) return;
-
-        this._boss = null;
-        this.gameManager?.notifyBossDefeated();
-    }
-
     /** Boss 出场时间：<=0 时跟随 GameManager 的时间上限，且不会超过该上限 */
     private getBossSpawnTime(): number {
         const limit = this.gameManager ? Math.max(0, this.gameManager.timeLimit) : GAME_TIME_LIMIT;
@@ -232,7 +236,7 @@ export class BattleManager extends Component {
         this._timer = 0;
         this._spawning = true;
         this._bossPhase = false;
-        this._boss = null;
+        this._bossKilled = false;
     }
 
     /** 停止敌人生成 */
@@ -306,7 +310,6 @@ export class BattleManager extends Component {
             this.applyStatMultiplier(boss);
         }
 
-        this._boss = boss;
         return true;
     }
 
