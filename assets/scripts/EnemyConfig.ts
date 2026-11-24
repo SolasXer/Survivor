@@ -87,7 +87,7 @@ export const ENEMY_CONFIGS: Record<EnemyId, EnemyConfig> = {
         name: '史莱姆',
         hp: 30,
         moveSpeed: 105,
-        damage: 5,
+        damage: 8,
         exp: 10,
     },
     [EnemyId.Goblin]: {
@@ -95,7 +95,7 @@ export const ENEMY_CONFIGS: Record<EnemyId, EnemyConfig> = {
         name: '哥布林',
         hp: 40,
         moveSpeed: 95,
-        damage: 6,
+        damage: 10,
         exp: 18,
         ranged: {
             keepDistance: 320,
