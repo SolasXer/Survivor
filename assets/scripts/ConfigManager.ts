@@ -103,8 +103,6 @@ export interface BattleConfig {
     spawnMargin: number;
 }
 
-/** 配置文件的存放目录（相对 assets/resources） */
-const CONFIG_DIR = 'data';
 
 /** 默认玩家配置：配置文件缺失或读取失败时使用 */
 const DEFAULT_PLAYER_CONFIG: PlayerConfig = {
@@ -305,21 +303,19 @@ export class ConfigManager extends Component {
         return ConfigManager._instance?.getBattleConfig() ?? DEFAULT_BATTLE_CONFIG;
     }
 
-    /** 读取 `assets/resources/data/<name>.json`，失败时返回 null（由调用方回退默认值） */
+    /** 读取 `assets/resources/<name>.json`，失败时返回 null（由调用方回退默认值） */
     private loadJson<T>(name: string): Promise<T | null> {
-        const path = `${CONFIG_DIR}/${name}`;
-
         return new Promise<T | null>((resolve) => {
-            resources.load(path, JsonAsset, (err: Error | null, asset: JsonAsset | null) => {
+            resources.load(name, JsonAsset, (err: Error | null, asset: JsonAsset | null) => {
                 if (err || !asset) {
-                    console.error(`[ConfigManager] 读取配置失败：${path}`, err ?? '资源为空');
+                    console.error(`[ConfigManager] 读取配置失败：${name}`, err ?? '资源为空');
                     resolve(null);
                     return;
                 }
 
                 const data = asset.json as unknown;
                 if (!data || typeof data !== 'object') {
-                    console.error(`[ConfigManager] 配置内容非法：${path}`);
+                    console.error(`[ConfigManager] 配置内容非法：${name}`);
                     resolve(null);
                     return;
                 }

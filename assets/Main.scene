@@ -1047,7 +1047,7 @@
     "_priority": 1,
     "_fov": 45,
     "_fovAxis": 0,
-    "_orthoHeight": 306.12002376708256,
+    "_orthoHeight": 289.438202247191,
     "_near": 0,
     "_far": 2000,
     "_color": {
@@ -2259,7 +2259,7 @@
     "__prefab": null,
     "_contentSize": {
       "__type__": "cc.Size",
-      "width": 50.086979630867496,
+      "width": 50.0870237886236,
       "height": 40.32
     },
     "_anchorPoint": {
@@ -2322,7 +2322,7 @@
     "_string": "Lv.1",
     "_horizontalAlign": 0,
     "_verticalAlign": 1,
-    "_actualFontSize": 34.1859375,
+    "_actualFontSize": 36.15625,
     "_fontSize": 26,
     "_fontFamily": "Arial",
     "_lineHeight": 32,
@@ -2424,8 +2424,8 @@
     "__prefab": null,
     "_contentSize": {
       "__type__": "cc.Size",
-      "width": 81.83399946152703,
-      "height": 50.39999999999999
+      "width": 81.84375,
+      "height": 50.400000000000006
     },
     "_anchorPoint": {
       "__type__": "cc.Vec2",
@@ -2487,7 +2487,7 @@
     "_string": "00:00",
     "_horizontalAlign": 1,
     "_verticalAlign": 1,
-    "_actualFontSize": 42.075,
+    "_actualFontSize": 44.5,
     "_fontSize": 32,
     "_fontFamily": "Arial",
     "_lineHeight": 40,
@@ -2644,8 +2644,8 @@
     "__prefab": null,
     "_contentSize": {
       "__type__": "cc.Size",
-      "width": 35.98904950237671,
-      "height": 27.720000000000002
+      "width": 35.99820049157304,
+      "height": 27.72
     },
     "_anchorPoint": {
       "__type__": "cc.Vec2",
@@ -2677,7 +2677,7 @@
     "_string": "暂停",
     "_horizontalAlign": 1,
     "_verticalAlign": 1,
-    "_actualFontSize": 23.6671875,
+    "_actualFontSize": 25.03125,
     "_fontSize": 18,
     "_fontFamily": "Arial",
     "_lineHeight": 22,
@@ -3263,8 +3263,8 @@
     "__prefab": null,
     "_contentSize": {
       "__type__": "cc.Size",
-      "width": 111.98288027332144,
-      "height": 44.10000000000001
+      "width": 111.9784058988764,
+      "height": 44.1
     },
     "_anchorPoint": {
       "__type__": "cc.Vec2",
@@ -3296,7 +3296,7 @@
     "_string": "开始游戏",
     "_horizontalAlign": 1,
     "_verticalAlign": 1,
-    "_actualFontSize": 36.815625000000004,
+    "_actualFontSize": 38.9375,
     "_fontSize": 28,
     "_fontFamily": "Arial",
     "_lineHeight": 35,
@@ -3766,8 +3766,8 @@
     "__prefab": null,
     "_contentSize": {
       "__type__": "cc.Size",
-      "width": 111.98288027332144,
-      "height": 44.10000000000001
+      "width": 111.9784058988764,
+      "height": 44.1
     },
     "_anchorPoint": {
       "__type__": "cc.Vec2",
@@ -3799,7 +3799,7 @@
     "_string": "继续游戏",
     "_horizontalAlign": 1,
     "_verticalAlign": 1,
-    "_actualFontSize": 36.815625000000004,
+    "_actualFontSize": 38.9375,
     "_fontSize": 28,
     "_fontFamily": "Arial",
     "_lineHeight": 35,
@@ -4099,8 +4099,8 @@
     "__prefab": null,
     "_contentSize": {
       "__type__": "cc.Size",
-      "width": 111.98288027332144,
-      "height": 44.10000000000001
+      "width": 111.9784058988764,
+      "height": 44.1
     },
     "_anchorPoint": {
       "__type__": "cc.Vec2",
@@ -4132,7 +4132,7 @@
     "_string": "退出游戏",
     "_horizontalAlign": 1,
     "_verticalAlign": 1,
-    "_actualFontSize": 36.815625000000004,
+    "_actualFontSize": 38.9375,
     "_fontSize": 28,
     "_fontFamily": "Arial",
     "_lineHeight": 35,
@@ -4521,7 +4521,7 @@
     "_lpos": {
       "__type__": "cc.Vec3",
       "x": 0,
-      "y": 189.6,
+      "y": 189.60000000000002,
       "z": 0
     },
     "_lrot": {
@@ -4559,8 +4559,8 @@
     "__prefab": null,
     "_contentSize": {
       "__type__": "cc.Size",
-      "width": 127.99999071598336,
-      "height": 100.79999999999998
+      "width": 128,
+      "height": 100.80000000000001
     },
     "_anchorPoint": {
       "__type__": "cc.Vec2",
@@ -4622,7 +4622,7 @@
     "_string": "胜利",
     "_horizontalAlign": 1,
     "_verticalAlign": 1,
-    "_actualFontSize": 84.15,
+    "_actualFontSize": 89,
     "_fontSize": 64,
     "_fontFamily": "Arial",
     "_lineHeight": 80,
@@ -4787,7 +4787,7 @@
     "_string": "坚持时间 00:00\n达到等级 Lv.1\n击败敌人 0",
     "_horizontalAlign": 1,
     "_verticalAlign": 1,
-    "_actualFontSize": 36.815625000000004,
+    "_actualFontSize": 38.9375,
     "_fontSize": 28,
     "_fontFamily": "Arial",
     "_lineHeight": 48,
@@ -4944,7 +4944,7 @@
     "__prefab": null,
     "_contentSize": {
       "__type__": "cc.Size",
-      "width": 129.977393419489,
+      "width": 129.97750614466293,
       "height": 40.32
     },
     "_anchorPoint": {
@@ -4977,7 +4977,7 @@
     "_string": "返回主界面",
     "_horizontalAlign": 1,
     "_verticalAlign": 1,
-    "_actualFontSize": 34.1859375,
+    "_actualFontSize": 36.15625,
     "_fontSize": 26,
     "_fontFamily": "Arial",
     "_lineHeight": 32,
@@ -5277,7 +5277,7 @@
     "__prefab": null,
     "_contentSize": {
       "__type__": "cc.Size",
-      "width": 215.95713569518716,
+      "width": 215.9676088483146,
       "height": 40.32
     },
     "_anchorPoint": {
@@ -5310,7 +5310,7 @@
     "_string": "观看广告，原地复活",
     "_horizontalAlign": 1,
     "_verticalAlign": 1,
-    "_actualFontSize": 31.556250000000002,
+    "_actualFontSize": 33.375,
     "_fontSize": 24,
     "_fontFamily": "Arial",
     "_lineHeight": 32,
@@ -5838,8 +5838,8 @@
     "__prefab": null,
     "_contentSize": {
       "__type__": "cc.Size",
-      "width": 311.95292075163394,
-      "height": 48.1
+      "width": 451.9136235955056,
+      "height": 48.099999999999994
     },
     "_anchorPoint": {
       "__type__": "cc.Vec2",
@@ -5868,10 +5868,10 @@
       "b": 200,
       "a": 255
     },
-    "_string": "拖动摇杆，控制角色移动",
+    "_string": "拖动摇杆控制移动，角色会自动攻击",
     "_horizontalAlign": 0,
     "_verticalAlign": 1,
-    "_actualFontSize": 36.815625000000004,
+    "_actualFontSize": 38.9375,
     "_fontSize": 28,
     "_fontFamily": "Arial",
     "_lineHeight": 35,

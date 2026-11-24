@@ -9,7 +9,7 @@ export type EventCallback<T> = (payload: T) => void;
  * 与直接用 `director` 相比：
  * - 独立的事件通道，不会与引擎自身的 director 事件（场景加载等）混在一起；
  * - 回调签名统一为 `(payload) => void`，payload 类型由 `GameEvents.ts` 登记，
- *   调用处写 `EventBus.on<PlayerHpChangedPayload>(PLAYER_HP_CHANGED, (p) => ...)` 即可获得类型提示；
+ *   调用处写 `EventBus.on<HealthChangedPayload>(HEALTH_CHANGED, (p) => ...)` 即可获得类型提示；
  * - 事件名集中在 `GameEvents.ts`，配合本总线即可做到发送方与接收方零 import。
  *
  * 注意：总线是全局的，监听不会随节点销毁自动解绑。

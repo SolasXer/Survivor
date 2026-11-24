@@ -23,9 +23,6 @@ export const ENTITY_DIED = 'entity/died';
 
 // ---------------------------------------------------------------- 玩家域
 
-/** 玩家生命值变化：由 PlayerController 把 HEALTH_CHANGED 翻译成玩家域事件 */
-export const PLAYER_HP_CHANGED = 'player/hp-changed';
-
 /** 玩家经验值变化（含当前等级与升级所需经验） */
 export const PLAYER_EXP_CHANGED = 'player/exp-changed';
 
@@ -118,13 +115,6 @@ export interface EntityDiedPayload {
 export interface PlayerRevivePayload {
     /** 复活后恢复的生命值比例（0~1） */
     hpRatio: number;
-}
-
-/** 玩家生命值 */
-export interface PlayerHpChangedPayload {
-    hp: number;
-    maxHp: number;
-    ratio: number;
 }
 
 /** 玩家经验与等级 */

@@ -26,7 +26,6 @@ import {
     JOYSTICK_MOVE_START,
     PLAYER_DEAD,
     PLAYER_EXP_CHANGED,
-    PLAYER_HP_CHANGED,
     PLAYER_LEVEL_UP,
     PLAYER_REVIVE,
     PLAYER_SKILLS_CHANGED,
@@ -36,7 +35,6 @@ import {
     EntityDiedPayload,
     HealthChangedPayload,
     PlayerExpChangedPayload,
-    PlayerHpChangedPayload,
     PlayerLevelUpPayload,
     PlayerRevivePayload,
     PlayerSkillsChangedPayload,
@@ -54,7 +52,7 @@ const MULTI_SHOT_ANGLE_STEP = 8 * Math.PI / 180;
  *
  * 生命值与移动已分别交给 `HealthComponent` 与 `MovementComponent`，
  * 本脚本只负责装配、攻击与成长逻辑，并通过全局事件总线与外界通信：
- * - 监听 `HEALTH_CHANGED` / `ENTITY_DIED`：转发成 `PLAYER_HP_CHANGED` / `PLAYER_DEAD`；
+ * - 监听 `HEALTH_CHANGED` / `ENTITY_DIED`：受击音效与 `PLAYER_DEAD` 失败判定；
  * - 监听 `DAMAGE_PLAYER` 结算伤害、`SKILL_SELECTED` 提升技能、`ENEMY_KILLED` 累计经验；
  * - 经验与技能变化时发出 `PLAYER_EXP_CHANGED` / `PLAYER_LEVEL_UP` / `PLAYER_SKILLS_CHANGED`；
  * - 开局（start）主动广播一次当前数值，供 HUD、升级界面等监听方拿到初始快照。
@@ -204,7 +202,6 @@ export class PlayerController extends Component {
         // 场景加载完成后再预热对象池，避免在 onLoad 阶段改动节点层级
         this.initBulletPool();
 
-        this.broadcastHp();
         this.broadcastExp();
         this.broadcastSkills();
     }
@@ -223,8 +220,9 @@ export class PlayerController extends Component {
     }
 
     /**
-     * 生命值变化：只处理自己身上的组件，转发成玩家域事件；
+     * 生命值变化：只处理自己身上的组件；
      * 实际掉血时播放受击音效，未挂载 AudioManager 时静默跳过。
+     * HUD 等界面直接订阅 HEALTH_CHANGED 并按节点过滤，无需在此转发。
      */
     private onHealthChanged(payload: HealthChangedPayload) {
         if (!payload || payload.node !== this.node) return;
@@ -232,8 +230,6 @@ export class PlayerController extends Component {
         if (payload.delta < 0) {
             AudioManager.play(SfxType.Hurt);
         }
-
-        this.broadcastHp(payload.hp, payload.maxHp, payload.ratio);
     }
 
     /** 阵亡：只处理自己身上的组件，发出 PLAYER_DEAD 由 GameManager 判定失败 */
@@ -268,17 +264,6 @@ export class PlayerController extends Component {
         if (!payload) return;
 
         this.upgradeSkill(payload.skillId as BulletSkillId);
-    }
-
-    /** 广播当前生命值 */
-    private broadcastHp(hp?: number, maxHp?: number, ratio?: number) {
-        const health = this.getHealth();
-        const payload: PlayerHpChangedPayload = {
-            hp: hp ?? health?.hp ?? 0,
-            maxHp: maxHp ?? health?.maxHp ?? 0,
-            ratio: ratio ?? health?.ratio ?? 0,
-        };
-        EventBus.emit<PlayerHpChangedPayload>(PLAYER_HP_CHANGED, payload);
     }
 
     /** 广播当前经验与等级 */

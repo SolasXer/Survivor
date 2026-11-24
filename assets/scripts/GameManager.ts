@@ -313,7 +313,7 @@ export class GameManager extends Component {
         // 开局循环播放战斗 BGM，对局结束时停止；未挂载 AudioManager 时静默跳过
         if (state === GameState.Running) {
             AudioManager.playBgm();
-        } else if (state === GameState.Over) {
+        } else if (state === GameState.Over || state === GameState.Ready) {
             AudioManager.stopBgm();
             this.emitGameOver();
         }

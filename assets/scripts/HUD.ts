@@ -2,16 +2,19 @@ import { _decorator, Component, Node, Label, UITransform, find } from 'cc';
 import { GameManager, GameState } from './GameManager';
 import { EventBus } from './EventBus';
 import {
+    HEALTH_CHANGED,
     PLAYER_EXP_CHANGED,
-    PLAYER_HP_CHANGED,
     UI_PAUSE_REQUESTED,
+    HealthChangedPayload,
     PlayerExpChangedPayload,
-    PlayerHpChangedPayload,
 } from './GameEvents';
 const { ccclass, property } = _decorator;
 
 /** 场景中 Canvas 的默认路径 */
 const CANVAS_PATH = 'Canvas';
+
+/** 场景中玩家节点的默认路径，用于过滤 HEALTH_CHANGED 事件 */
+const PLAYER_PATH = 'Canvas/Player';
 
 /** 时间文本不足两位时补零 */
 function pad2(value: number): string {
@@ -20,7 +23,7 @@ function pad2(value: number): string {
 
 /**
  * HUD：挂载在 Canvas/HUD 节点上，把玩家与对局状态显示到界面上。
- * - 生命值条：订阅 `PLAYER_HP_CHANGED`，按事件携带的比例刷新；
+ * - 生命值条：订阅 `HEALTH_CHANGED` 并按节点过滤出玩家，按事件携带的比例刷新；
  * - 经验值条：订阅 `PLAYER_EXP_CHANGED`，按事件携带的比例刷新；
  * - 等级文本：随经验事件中的等级刷新；
  * - 时间文本：`mm:ss`（游戏内已进行的时间，读 GameManager 的当前时间）；
@@ -59,6 +62,9 @@ export class HUD extends Component {
     private _healthTransform: UITransform | null = null;
     private _expTransform: UITransform | null = null;
 
+    /** 玩家节点引用：HEALTH_CHANGED 是全体实体共用的事件，需要按节点过滤出玩家 */
+    private _playerNode: Node | null = null;
+
     /** 上一次写入文本的内容，内容未变化时不重复给 Label 赋值 */
     private _levelText: string = '';
     private _timeText: string = '';
@@ -76,7 +82,9 @@ export class HUD extends Component {
             this.pauseButton.on(Node.EventType.TOUCH_END, this.onPauseClick, this);
         }
 
-        EventBus.on<PlayerHpChangedPayload>(PLAYER_HP_CHANGED, this.onPlayerHpChanged, this);
+        this._playerNode = find(PLAYER_PATH);
+
+        EventBus.on<HealthChangedPayload>(HEALTH_CHANGED, this.onHealthChanged, this);
         EventBus.on<PlayerExpChangedPayload>(PLAYER_EXP_CHANGED, this.onPlayerExpChanged, this);
     }
 
@@ -85,7 +93,7 @@ export class HUD extends Component {
             this.pauseButton.off(Node.EventType.TOUCH_END, this.onPauseClick, this);
         }
 
-        EventBus.off<PlayerHpChangedPayload>(PLAYER_HP_CHANGED, this.onPlayerHpChanged, this);
+        EventBus.off<HealthChangedPayload>(HEALTH_CHANGED, this.onHealthChanged, this);
         EventBus.off<PlayerExpChangedPayload>(PLAYER_EXP_CHANGED, this.onPlayerExpChanged, this);
     }
 
@@ -101,9 +109,9 @@ export class HUD extends Component {
         EventBus.emit(UI_PAUSE_REQUESTED);
     }
 
-    /** 玩家生命值变化：按新比例刷新生命值条 */
-    private onPlayerHpChanged(payload: PlayerHpChangedPayload) {
-        if (!payload) return;
+    /** 玩家生命值变化：只响应玩家节点的事件，按新比例刷新生命值条 */
+    private onHealthChanged(payload: HealthChangedPayload) {
+        if (!payload || payload.node !== this._playerNode) return;
 
         this.setFillWidth(this._healthTransform, payload.ratio);
     }
